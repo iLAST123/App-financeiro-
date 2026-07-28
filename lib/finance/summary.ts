@@ -82,13 +82,16 @@ export function centsToBRL(cents: number): string {
   })
 }
 
-/** interpreta "1.234,56", "1234.56" ou "1234" como centavos */
+/** interpreta "1.234,56", "1.234", "1234.56" ou "1234" como centavos */
 export function parseBRLInput(raw: string): number | null {
   const cleaned = raw.trim().replace(/\s|R\$/g, "")
   if (!cleaned) return null
   let normalized = cleaned
   if (cleaned.includes(",")) {
     normalized = cleaned.replace(/\./g, "").replace(",", ".")
+  } else if (/^\d{1,3}(\.\d{3})+$/.test(cleaned)) {
+    // sem vírgula e com pontos agrupando milhares ("1.234") → separador de milhar
+    normalized = cleaned.replace(/\./g, "")
   }
   const value = Number(normalized)
   if (!Number.isFinite(value) || value <= 0) return null

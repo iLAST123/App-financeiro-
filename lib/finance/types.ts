@@ -11,11 +11,16 @@ export interface Transaction {
   note?: string
 }
 
+/** orçamento mensal por categoria: categoryId → teto em centavos */
+export type BudgetMap = Record<string, number>
+
 export interface BackupFile {
   app: "meu-bolso"
   version: 1
   exportedAt: string
   transactions: Transaction[]
+  /** ausente em backups antigos (antes dos orçamentos) */
+  budgets?: BudgetMap
 }
 
 /** chave de mês no formato YYYY-MM */
@@ -40,6 +45,11 @@ export function shiftMonth(month: MonthKey, delta: number): MonthKey {
   const d = new Date(y, m - 1 + delta, 1)
   const pad = (n: number) => String(n).padStart(2, "0")
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}`
+}
+
+export function daysInMonth(month: MonthKey): number {
+  const [y, m] = month.split("-").map(Number)
+  return new Date(y, m, 0).getDate()
 }
 
 export function monthLabel(month: MonthKey): string {

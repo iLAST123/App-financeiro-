@@ -19,21 +19,30 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
-import { buildBackup, parseBackup } from "@/lib/finance/store"
-import type { Transaction } from "@/lib/finance/types"
+import {
+  buildBackup,
+  parseBackup,
+  type ParsedBackup,
+} from "@/lib/finance/store"
+import type { BudgetMap, Transaction } from "@/lib/finance/types"
 
 interface SettingsViewProps {
   transactions: Transaction[]
-  onReplaceAll: (transactions: Transaction[]) => void
+  budgets: BudgetMap
+  onReplaceAll: (transactions: Transaction[], budgets?: BudgetMap) => void
 }
 
-export function SettingsView({ transactions, onReplaceAll }: SettingsViewProps) {
+export function SettingsView({
+  transactions,
+  budgets,
+  onReplaceAll,
+}: SettingsViewProps) {
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [confirmClear, setConfirmClear] = useState(false)
-  const [pendingImport, setPendingImport] = useState<Transaction[] | null>(null)
+  const [pendingImport, setPendingImport] = useState<ParsedBackup | null>(null)
 
   function handleExport() {
-    const backup = buildBackup(transactions)
+    const backup = buildBackup(transactions, budgets)
     const blob = new Blob([JSON.stringify(backup, null, 2)], {
       type: "application/json",
     })
@@ -76,7 +85,8 @@ export function SettingsView({ transactions, onReplaceAll }: SettingsViewProps) 
           <CardTitle className="text-base">Backup</CardTitle>
           <CardDescription>
             Exporte um arquivo JSON com todos os lançamentos (
-            {transactions.length} no total) ou restaure de um backup anterior.
+            {transactions.length} no total) e orçamentos, ou restaure de um
+            backup anterior.
           </CardDescription>
         </CardHeader>
         <CardContent className="flex gap-3 pb-5">
@@ -124,8 +134,8 @@ export function SettingsView({ transactions, onReplaceAll }: SettingsViewProps) 
         <CardHeader className="pb-3">
           <CardTitle className="text-base text-destructive">Zona de perigo</CardTitle>
           <CardDescription>
-            Apaga todos os lançamentos deste aparelho. Essa ação não pode ser
-            desfeita.
+            Apaga todos os lançamentos e orçamentos deste aparelho. Essa ação
+            não pode ser desfeita.
           </CardDescription>
         </CardHeader>
         <CardContent className="pb-5">
@@ -156,7 +166,7 @@ export function SettingsView({ transactions, onReplaceAll }: SettingsViewProps) 
             <Button
               variant="destructive"
               onClick={() => {
-                onReplaceAll([])
+                onReplaceAll([], {})
                 setConfirmClear(false)
                 toast.success("Dados apagados")
               }}
@@ -175,9 +185,9 @@ export function SettingsView({ transactions, onReplaceAll }: SettingsViewProps) 
           <DialogHeader>
             <DialogTitle>Restaurar backup?</DialogTitle>
             <DialogDescription>
-              O arquivo contém {pendingImport?.length ?? 0} lançamentos. Eles vão
-              substituir os {transactions.length} lançamentos atuais deste
-              aparelho.
+              O arquivo contém {pendingImport?.transactions.length ?? 0}{" "}
+              lançamentos. Eles vão substituir os {transactions.length}{" "}
+              lançamentos atuais deste aparelho.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter className="gap-2">
@@ -187,7 +197,7 @@ export function SettingsView({ transactions, onReplaceAll }: SettingsViewProps) 
             <Button
               onClick={() => {
                 if (pendingImport) {
-                  onReplaceAll(pendingImport)
+                  onReplaceAll(pendingImport.transactions, pendingImport.budgets)
                   toast.success("Backup restaurado")
                 }
                 setPendingImport(null)
