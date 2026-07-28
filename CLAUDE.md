@@ -22,7 +22,6 @@ components/pwa/sw-register.tsx
 components/ui/               ← primitives shadcn
 lib/finance/{types,categories,store,summary,budgets,insights}.ts
 public/{manifest.webmanifest,sw.js,icons/}
-.github/workflows/deploy.yml ← publica ./out no GitHub Pages a cada push na main
 ```
 
 ## Convenções
@@ -41,4 +40,6 @@ public/{manifest.webmanifest,sw.js,icons/}
 
 `npm run build` gera `./out` (site estático). O service worker (`public/sw.js`) só registra em produção; ao mudar assets cacheados, incrementar `CACHE_NAME`.
 
-Deploy: GitHub Pages via Actions (`.github/workflows/deploy.yml`), publicado em `https://ilast123.github.io/App-financeiro-/`. O subpath vem da env `NEXT_PUBLIC_BASE_PATH` (basePath/assetPrefix no `next.config.mjs`; também usada em `app/layout.tsx` e `components/pwa/sw-register.tsx` — metadata e registro do SW não recebem basePath automaticamente). `manifest.webmanifest` usa URLs relativas e o `sw.js` deriva a raiz do escopo do registro — manter assim ao mexer no PWA.
+Deploy canônico: **Vercel**, projeto conectado a este repo — cada push na `main` publica **https://app-financeiro-amber.vercel.app** (app servido na raiz, sem basePath). Não há outro deploy ativo; o workflow do GitHub Pages foi removido (o Pages nunca foi habilitado — se um dia voltar, recuperar `.github/workflows/deploy.yml` do histórico do git).
+
+Suporte a subpath (opcional, hoje não usado): a env `NEXT_PUBLIC_BASE_PATH` alimenta basePath/assetPrefix no `next.config.mjs` e também `app/layout.tsx` e `components/pwa/sw-register.tsx` (metadata e registro do SW não recebem basePath automaticamente). Na Vercel ela fica **sem valor**. `manifest.webmanifest` usa URLs relativas e o `sw.js` deriva a raiz do escopo do registro — manter assim ao mexer no PWA.
