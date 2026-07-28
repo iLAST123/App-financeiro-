@@ -18,15 +18,13 @@ App pessoal de controle financeiro — um **PWA** que você instala no celular e
 - Extrato agrupado por dia, com edição e exclusão
 - Funciona offline depois de instalado (service worker)
 
-## Publicação (GitHub Pages)
+## Publicação (Vercel)
 
-O deploy é automático: todo push na `main` roda `.github/workflows/deploy.yml` e publica em **https://ilast123.github.io/App-financeiro-/**.
-
-Configuração única (só na primeira vez): no GitHub, **Settings → Pages → Build and deployment → Source: "GitHub Actions"**.
+O deploy é automático: o projeto está conectado à Vercel e todo push na `main` publica em **https://app-financeiro-amber.vercel.app**.
 
 ## Como instalar no celular
 
-1. Abra **https://ilast123.github.io/App-financeiro-/** no celular.
+1. Abra **https://app-financeiro-amber.vercel.app** no celular.
 2. **Android (Chrome):** menu ⋮ → "Adicionar à tela inicial".
 3. **iPhone (Safari):** botão de compartilhar → "Adicionar à Tela de Início".
 
