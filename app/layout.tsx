@@ -3,14 +3,17 @@ import "./globals.css"
 import { SwRegister } from "@/components/pwa/sw-register"
 import { Toaster } from "@/components/ui/sonner"
 
+// URLs de metadata não recebem basePath automaticamente no export estático
+const basePath = process.env.NEXT_PUBLIC_BASE_PATH ?? ""
+
 export const metadata: Metadata = {
   title: "Meu Bolso — Controle financeiro pessoal",
   description:
     "App pessoal de controle financeiro. Seus dados ficam apenas no seu aparelho.",
-  manifest: "/manifest.webmanifest",
+  manifest: `${basePath}/manifest.webmanifest`,
   icons: {
-    icon: "/icons/icon-192.png",
-    apple: "/icons/apple-touch-icon.png",
+    icon: `${basePath}/icons/icon-192.png`,
+    apple: `${basePath}/icons/apple-touch-icon.png`,
   },
   appleWebApp: {
     capable: true,

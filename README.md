@@ -12,16 +12,23 @@ App pessoal de controle financeiro — um **PWA** que você instala no celular e
 
 - Lançamentos de receitas e despesas com categorias, data e descrição
 - Resumo mensal: saldo, receitas, despesas
+- **Orçamento mensal por categoria**: teto de gastos com barra de progresso e alerta ao chegar em 80% ou estourar
+- **Radar do mês**: insights automáticos calculados no aparelho — projeção de fim de mês pelo ritmo de gastos, orçamentos em risco, categoria que subiu/caiu vs. mês anterior e maior gasto
 - Despesas por categoria (barras) e gráfico dos últimos 6 meses
 - Extrato agrupado por dia, com edição e exclusão
 - Funciona offline depois de instalado (service worker)
 
+## Publicação (GitHub Pages)
+
+O deploy é automático: todo push na `main` roda `.github/workflows/deploy.yml` e publica em **https://ilast123.github.io/App-financeiro-/**.
+
+Configuração única (só na primeira vez): no GitHub, **Settings → Pages → Build and deployment → Source: "GitHub Actions"**.
+
 ## Como instalar no celular
 
-1. Publique o app (Vercel, Netlify, GitHub Pages — é um site estático) ou rode localmente.
-2. Abra a URL no celular.
-3. **Android (Chrome):** menu ⋮ → "Adicionar à tela inicial".
-4. **iPhone (Safari):** botão de compartilhar → "Adicionar à Tela de Início".
+1. Abra **https://ilast123.github.io/App-financeiro-/** no celular.
+2. **Android (Chrome):** menu ⋮ → "Adicionar à tela inicial".
+3. **iPhone (Safari):** botão de compartilhar → "Adicionar à Tela de Início".
 
 ## Desenvolvimento
 

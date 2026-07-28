@@ -1,9 +1,13 @@
 /* Service worker do Meu Bolso — cache offline simples. */
-const CACHE_NAME = "meu-bolso-v1"
+const CACHE_NAME = "meu-bolso-v2"
+
+// Caminho raiz do app: "/" na raiz do domínio, "/App-financeiro-/" no GitHub
+// Pages. Derivado do escopo do registro pra funcionar nos dois sem build.
+const APP_ROOT = new URL(self.registration.scope).pathname
 
 self.addEventListener("install", (event) => {
   event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => cache.addAll(["/"]))
+    caches.open(CACHE_NAME).then((cache) => cache.addAll([APP_ROOT]))
   )
   self.skipWaiting()
 })
@@ -33,10 +37,10 @@ self.addEventListener("fetch", (event) => {
       fetch(request)
         .then((response) => {
           const copy = response.clone()
-          caches.open(CACHE_NAME).then((cache) => cache.put("/", copy))
+          caches.open(CACHE_NAME).then((cache) => cache.put(APP_ROOT, copy))
           return response
         })
-        .catch(() => caches.match("/"))
+        .catch(() => caches.match(APP_ROOT))
     )
     return
   }
