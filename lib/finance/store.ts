@@ -1,30 +1,51 @@
 "use client"
 
 import { useCallback, useEffect, useState } from "react"
-import type { BackupFile, Transaction } from "./types"
+import type { BackupFile, BudgetMap, Transaction } from "./types"
 
 const STORAGE_KEY = "meu-bolso:v1"
 
 interface StoredData {
   version: 1
   transactions: Transaction[]
+  /** orçamento mensal por categoria (categoryId → centavos); opcional p/ dados antigos */
+  budgets?: BudgetMap
 }
 
-function loadFromStorage(): Transaction[] {
+function sanitizeBudgets(raw: unknown): BudgetMap {
+  if (typeof raw !== "object" || raw === null) return {}
+  const out: BudgetMap = {}
+  for (const [categoryId, value] of Object.entries(raw as Record<string, unknown>)) {
+    if (typeof value === "number" && Number.isFinite(value) && value > 0) {
+      out[categoryId] = Math.round(value)
+    }
+  }
+  return out
+}
+
+function loadFromStorage(): { transactions: Transaction[]; budgets: BudgetMap } {
   try {
     const raw = localStorage.getItem(STORAGE_KEY)
-    if (!raw) return []
-    const parsed = JSON.parse(raw) as StoredData
-    if (!Array.isArray(parsed.transactions)) return []
-    return parsed.transactions
+    if (!raw) return { transactions: [], budgets: {} }
+    const parsed = JSON.parse(raw) as Partial<StoredData>
+    return {
+      transactions: Array.isArray(parsed.transactions) ? parsed.transactions : [],
+      budgets: sanitizeBudgets(parsed.budgets),
+    }
   } catch {
-    return []
+    return { transactions: [], budgets: {} }
   }
 }
 
-function saveToStorage(transactions: Transaction[]) {
-  const data: StoredData = { version: 1, transactions }
+function saveToStorage(transactions: Transaction[], budgets: BudgetMap) {
+  const data: StoredData = { version: 1, transactions, budgets }
   localStorage.setItem(STORAGE_KEY, JSON.stringify(data))
+}
+
+function sortTransactions(transactions: Transaction[]): Transaction[] {
+  return [...transactions].sort((a, b) =>
+    a.date === b.date ? b.id.localeCompare(a.id) : b.date.localeCompare(a.date)
+  )
 }
 
 export function newId(): string {
@@ -36,67 +57,97 @@ export function newId(): string {
 
 export function useTransactions() {
   const [transactions, setTransactions] = useState<Transaction[]>([])
+  const [budgets, setBudgets] = useState<BudgetMap>({})
   const [ready, setReady] = useState(false)
 
   useEffect(() => {
-    setTransactions(loadFromStorage())
+    const data = loadFromStorage()
+    setTransactions(sortTransactions(data.transactions))
+    setBudgets(data.budgets)
     setReady(true)
   }, [])
 
-  const persist = useCallback((next: Transaction[]) => {
-    const sorted = [...next].sort((a, b) =>
-      a.date === b.date ? b.id.localeCompare(a.id) : b.date.localeCompare(a.date)
-    )
-    setTransactions(sorted)
-    saveToStorage(sorted)
-  }, [])
+  const persist = useCallback(
+    (nextTransactions: Transaction[], nextBudgets?: BudgetMap) => {
+      const sorted = sortTransactions(nextTransactions)
+      const budgetsToSave =
+        nextBudgets !== undefined
+          ? sanitizeBudgets(nextBudgets)
+          : loadFromStorage().budgets
+      setTransactions(sorted)
+      setBudgets(budgetsToSave)
+      saveToStorage(sorted, budgetsToSave)
+    },
+    []
+  )
 
   const add = useCallback(
     (tx: Omit<Transaction, "id">) => {
-      persist([...loadFromStorage(), { ...tx, id: newId() }])
+      persist([...loadFromStorage().transactions, { ...tx, id: newId() }])
     },
     [persist]
   )
 
   const update = useCallback(
     (tx: Transaction) => {
-      persist(loadFromStorage().map((t) => (t.id === tx.id ? tx : t)))
+      persist(
+        loadFromStorage().transactions.map((t) => (t.id === tx.id ? tx : t))
+      )
     },
     [persist]
   )
 
   const remove = useCallback(
     (id: string) => {
-      persist(loadFromStorage().filter((t) => t.id !== id))
+      persist(loadFromStorage().transactions.filter((t) => t.id !== id))
     },
     [persist]
   )
 
+  /** substitui os lançamentos e, se informado, também os orçamentos */
   const replaceAll = useCallback(
-    (next: Transaction[]) => {
-      persist(next)
+    (next: Transaction[], nextBudgets?: BudgetMap) => {
+      persist(next, nextBudgets)
     },
     [persist]
   )
 
-  return { transactions, ready, add, update, remove, replaceAll }
+  const saveBudgets = useCallback(
+    (next: BudgetMap) => {
+      persist(loadFromStorage().transactions, next)
+    },
+    [persist]
+  )
+
+  return { transactions, budgets, ready, add, update, remove, replaceAll, saveBudgets }
 }
 
-export function buildBackup(transactions: Transaction[]): BackupFile {
-  return {
+export function buildBackup(
+  transactions: Transaction[],
+  budgets: BudgetMap = {}
+): BackupFile {
+  const backup: BackupFile = {
     app: "meu-bolso",
     version: 1,
     exportedAt: new Date().toISOString(),
     transactions,
   }
+  if (Object.keys(budgets).length > 0) backup.budgets = budgets
+  return backup
 }
 
-export function parseBackup(raw: string): Transaction[] {
+export interface ParsedBackup {
+  transactions: Transaction[]
+  /** undefined quando o backup é antigo e não traz orçamentos */
+  budgets?: BudgetMap
+}
+
+export function parseBackup(raw: string): ParsedBackup {
   const parsed = JSON.parse(raw) as Partial<BackupFile>
   if (parsed.app !== "meu-bolso" || !Array.isArray(parsed.transactions)) {
     throw new Error("Arquivo de backup inválido")
   }
-  return parsed.transactions.filter(
+  const transactions = parsed.transactions.filter(
     (t): t is Transaction =>
       typeof t === "object" &&
       t !== null &&
@@ -108,4 +159,9 @@ export function parseBackup(raw: string): Transaction[] {
       typeof t.date === "string" &&
       /^\d{4}-\d{2}-\d{2}$/.test(t.date)
   )
+  return {
+    transactions,
+    budgets:
+      parsed.budgets !== undefined ? sanitizeBudgets(parsed.budgets) : undefined,
+  }
 }

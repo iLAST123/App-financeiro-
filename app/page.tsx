@@ -3,8 +3,11 @@
 import { useMemo, useState } from "react"
 import { List, PieChart, Plus, Settings } from "lucide-react"
 import { toast } from "sonner"
+import { BudgetEditor } from "@/components/finance/budget-editor"
+import { BudgetsCard } from "@/components/finance/budgets-card"
 import { CategoryBars } from "@/components/finance/category-bars"
 import { HistoryChart } from "@/components/finance/history-chart"
+import { InsightCards } from "@/components/finance/insight-cards"
 import { MonthPicker } from "@/components/finance/month-picker"
 import { SettingsView } from "@/components/finance/settings-view"
 import { SummaryCards } from "@/components/finance/summary-cards"
@@ -12,6 +15,8 @@ import { TransactionForm } from "@/components/finance/transaction-form"
 import { TransactionList } from "@/components/finance/transaction-list"
 import { EmptyState } from "@/components/ui/EmptyState"
 import { Skeleton } from "@/components/ui/skeleton"
+import { budgetStatuses } from "@/lib/finance/budgets"
+import { buildInsights } from "@/lib/finance/insights"
 import { useTransactions } from "@/lib/finance/store"
 import {
   expensesByCategory,
@@ -22,6 +27,7 @@ import {
 import {
   currentMonthKey,
   shiftMonth,
+  type BudgetMap,
   type Transaction,
 } from "@/lib/finance/types"
 import { cn } from "@/lib/utils"
@@ -35,11 +41,20 @@ const TABS: { id: Tab; label: string; icon: typeof PieChart }[] = [
 ]
 
 export default function HomePage() {
-  const { transactions, ready, add, update, remove, replaceAll } =
-    useTransactions()
+  const {
+    transactions,
+    budgets,
+    ready,
+    add,
+    update,
+    remove,
+    replaceAll,
+    saveBudgets,
+  } = useTransactions()
   const [tab, setTab] = useState<Tab>("resumo")
   const [month, setMonth] = useState(currentMonthKey)
   const [formOpen, setFormOpen] = useState(false)
+  const [budgetEditorOpen, setBudgetEditorOpen] = useState(false)
   const [editing, setEditing] = useState<Transaction | undefined>(undefined)
 
   const monthTransactions = useMemo(
@@ -55,6 +70,14 @@ export default function HomePage() {
     const months = Array.from({ length: 6 }, (_, i) => shiftMonth(month, i - 5))
     return lastMonthsSeries(transactions, months)
   }, [transactions, month])
+  const budgetStats = useMemo(
+    () => budgetStatuses(monthTransactions, budgets),
+    [monthTransactions, budgets]
+  )
+  const insights = useMemo(
+    () => buildInsights(transactions, month, budgets),
+    [transactions, month, budgets]
+  )
 
   function openNew() {
     setEditing(undefined)
@@ -81,6 +104,11 @@ export default function HomePage() {
     toast.success("Lançamento excluído")
   }
 
+  function handleSaveBudgets(next: BudgetMap) {
+    saveBudgets(next)
+    toast.success("Orçamentos salvos")
+  }
+
   return (
     <div className="mx-auto flex min-h-dvh w-full max-w-md flex-col">
       <header className="flex items-center justify-between px-4 pb-2 pt-[max(1rem,env(safe-area-inset-top))]">
@@ -100,7 +128,11 @@ export default function HomePage() {
             <Skeleton className="h-48 w-full" />
           </div>
         ) : tab === "ajustes" ? (
-          <SettingsView transactions={transactions} onReplaceAll={replaceAll} />
+          <SettingsView
+            transactions={transactions}
+            budgets={budgets}
+            onReplaceAll={replaceAll}
+          />
         ) : (
           <>
             <MonthPicker month={month} onChange={setMonth} />
@@ -108,12 +140,25 @@ export default function HomePage() {
               <>
                 <SummaryCards summary={summary} />
                 {monthTransactions.length === 0 ? (
-                  <EmptyState
-                    title="Nada por aqui ainda"
-                    description="Registre receitas e despesas no botão + e acompanhe seu mês."
-                  />
+                  <>
+                    <EmptyState
+                      title="Nada por aqui ainda"
+                      description="Registre receitas e despesas no botão + e acompanhe seu mês."
+                    />
+                    {budgetStats.length > 0 && (
+                      <BudgetsCard
+                        statuses={budgetStats}
+                        onEdit={() => setBudgetEditorOpen(true)}
+                      />
+                    )}
+                  </>
                 ) : (
                   <>
+                    <InsightCards insights={insights} />
+                    <BudgetsCard
+                      statuses={budgetStats}
+                      onEdit={() => setBudgetEditorOpen(true)}
+                    />
                     <CategoryBars totals={categoryTotals} />
                     <HistoryChart points={historyPoints} />
                   </>
@@ -164,6 +209,13 @@ export default function HomePage() {
         editing={editing}
         onSave={handleSave}
         onDelete={handleDelete}
+      />
+
+      <BudgetEditor
+        open={budgetEditorOpen}
+        onOpenChange={setBudgetEditorOpen}
+        budgets={budgets}
+        onSave={handleSaveBudgets}
       />
     </div>
   )
