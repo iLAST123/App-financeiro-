@@ -49,6 +49,7 @@ export default function HomePage() {
     update,
     remove,
     replaceAll,
+    importMerge,
     saveBudgets,
   } = useTransactions()
   const [tab, setTab] = useState<Tab>("resumo")
@@ -132,6 +133,7 @@ export default function HomePage() {
             transactions={transactions}
             budgets={budgets}
             onReplaceAll={replaceAll}
+            onImportMerge={importMerge}
           />
         ) : (
           <>

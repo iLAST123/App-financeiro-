@@ -19,6 +19,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
+import { PluggyCard } from "@/components/finance/pluggy-card"
 import {
   buildBackup,
   parseBackup,
@@ -30,12 +31,17 @@ interface SettingsViewProps {
   transactions: Transaction[]
   budgets: BudgetMap
   onReplaceAll: (transactions: Transaction[], budgets?: BudgetMap) => void
+  onImportMerge: (transactions: Transaction[]) => {
+    added: number
+    skipped: number
+  }
 }
 
 export function SettingsView({
   transactions,
   budgets,
   onReplaceAll,
+  onImportMerge,
 }: SettingsViewProps) {
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [confirmClear, setConfirmClear] = useState(false)
@@ -73,9 +79,11 @@ export function SettingsView({
             Seus dados são só seus
           </CardTitle>
           <CardDescription>
-            Tudo fica salvo apenas neste aparelho, no armazenamento do navegador.
-            Nada é enviado para servidores. Por isso, faça backups: se limpar os
-            dados do navegador, os lançamentos são perdidos.
+            Tudo fica salvo apenas neste aparelho, no armazenamento do navegador
+            — o Meu Bolso não tem servidor. Se você conectar o open finance, o
+            app fala direto com a API da Pluggy usando as suas credenciais. Por
+            isso, faça backups: se limpar os dados do navegador, os lançamentos
+            são perdidos.
           </CardDescription>
         </CardHeader>
       </Card>
@@ -115,6 +123,8 @@ export function SettingsView({
           />
         </CardContent>
       </Card>
+
+      <PluggyCard onImport={onImportMerge} />
 
       <Card>
         <CardHeader className="pb-3">

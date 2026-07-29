@@ -48,6 +48,31 @@ function sortTransactions(transactions: Transaction[]): Transaction[] {
   )
 }
 
+/**
+ * Mescla lançamentos importados do open finance com os existentes (MERGE,
+ * nunca replace): quem já tem o mesmo `pluggyId` é ignorado — reimportar o
+ * mesmo mês quantas vezes for não duplica o extrato. Pura, p/ ser testável.
+ */
+export function mergeByPluggyId(
+  current: Transaction[],
+  incoming: Transaction[]
+): { merged: Transaction[]; added: number; skipped: number } {
+  const known = new Set(current.flatMap((t) => (t.pluggyId ? [t.pluggyId] : [])))
+  const fresh: Transaction[] = []
+  let skipped = 0
+  for (const t of incoming) {
+    if (t.pluggyId !== undefined && known.has(t.pluggyId)) {
+      skipped++
+      continue
+    }
+    // marca também os do próprio lote: se a API devolver a mesma transação
+    // duas vezes (ex.: overlap de cursor), a segunda cópia é descartada aqui
+    if (t.pluggyId !== undefined) known.add(t.pluggyId)
+    fresh.push(t)
+  }
+  return { merged: [...current, ...fresh], added: fresh.length, skipped }
+}
+
 export function newId(): string {
   if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
     return crypto.randomUUID()
@@ -112,6 +137,19 @@ export function useTransactions() {
     [persist]
   )
 
+  /** import do open finance: merge deduplicado por `pluggyId` (ver mergeByPluggyId) */
+  const importMerge = useCallback(
+    (incoming: Transaction[]): { added: number; skipped: number } => {
+      const { merged, added, skipped } = mergeByPluggyId(
+        loadFromStorage().transactions,
+        incoming
+      )
+      if (added > 0) persist(merged)
+      return { added, skipped }
+    },
+    [persist]
+  )
+
   const saveBudgets = useCallback(
     (next: BudgetMap) => {
       persist(loadFromStorage().transactions, next)
@@ -119,7 +157,17 @@ export function useTransactions() {
     [persist]
   )
 
-  return { transactions, budgets, ready, add, update, remove, replaceAll, saveBudgets }
+  return {
+    transactions,
+    budgets,
+    ready,
+    add,
+    update,
+    remove,
+    replaceAll,
+    importMerge,
+    saveBudgets,
+  }
 }
 
 export function buildBackup(
@@ -147,18 +195,28 @@ export function parseBackup(raw: string): ParsedBackup {
   if (parsed.app !== "meu-bolso" || !Array.isArray(parsed.transactions)) {
     throw new Error("Arquivo de backup inválido")
   }
-  const transactions = parsed.transactions.filter(
-    (t): t is Transaction =>
-      typeof t === "object" &&
-      t !== null &&
-      typeof t.id === "string" &&
-      (t.type === "income" || t.type === "expense") &&
-      typeof t.amountCents === "number" &&
-      t.amountCents > 0 &&
-      typeof t.categoryId === "string" &&
-      typeof t.date === "string" &&
-      /^\d{4}-\d{2}-\d{2}$/.test(t.date)
-  )
+  const transactions = parsed.transactions
+    .filter(
+      (t): t is Transaction =>
+        typeof t === "object" &&
+        t !== null &&
+        typeof t.id === "string" &&
+        (t.type === "income" || t.type === "expense") &&
+        typeof t.amountCents === "number" &&
+        t.amountCents > 0 &&
+        typeof t.categoryId === "string" &&
+        typeof t.date === "string" &&
+        /^\d{4}-\d{2}-\d{2}$/.test(t.date)
+    )
+    // `pluggyId` é chave de dedup do open finance: se vier malformado no
+    // arquivo, mantém o lançamento mas descarta o campo
+    .map((t) => {
+      if (t.pluggyId === undefined) return t
+      if (typeof t.pluggyId === "string" && t.pluggyId.length > 0) return t
+      const clean = { ...t }
+      delete clean.pluggyId
+      return clean
+    })
   return {
     transactions,
     budgets:
