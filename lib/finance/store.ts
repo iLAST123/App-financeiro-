@@ -48,6 +48,26 @@ function sortTransactions(transactions: Transaction[]): Transaction[] {
   )
 }
 
+/**
+ * Mescla lançamentos importados do open finance com os existentes (MERGE,
+ * nunca replace): quem já tem o mesmo `pluggyId` é ignorado — reimportar o
+ * mesmo mês quantas vezes for não duplica o extrato. Pura, p/ ser testável.
+ */
+export function mergeByPluggyId(
+  current: Transaction[],
+  incoming: Transaction[]
+): { merged: Transaction[]; added: number; skipped: number } {
+  const known = new Set(current.flatMap((t) => (t.pluggyId ? [t.pluggyId] : [])))
+  const fresh = incoming.filter(
+    (t) => t.pluggyId === undefined || !known.has(t.pluggyId)
+  )
+  return {
+    merged: [...current, ...fresh],
+    added: fresh.length,
+    skipped: incoming.length - fresh.length,
+  }
+}
+
 export function newId(): string {
   if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
     return crypto.randomUUID()
@@ -112,6 +132,19 @@ export function useTransactions() {
     [persist]
   )
 
+  /** import do open finance: merge deduplicado por `pluggyId` (ver mergeByPluggyId) */
+  const importMerge = useCallback(
+    (incoming: Transaction[]): { added: number; skipped: number } => {
+      const { merged, added, skipped } = mergeByPluggyId(
+        loadFromStorage().transactions,
+        incoming
+      )
+      if (added > 0) persist(merged)
+      return { added, skipped }
+    },
+    [persist]
+  )
+
   const saveBudgets = useCallback(
     (next: BudgetMap) => {
       persist(loadFromStorage().transactions, next)
@@ -119,7 +152,17 @@ export function useTransactions() {
     [persist]
   )
 
-  return { transactions, budgets, ready, add, update, remove, replaceAll, saveBudgets }
+  return {
+    transactions,
+    budgets,
+    ready,
+    add,
+    update,
+    remove,
+    replaceAll,
+    importMerge,
+    saveBudgets,
+  }
 }
 
 export function buildBackup(

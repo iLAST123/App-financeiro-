@@ -9,6 +9,11 @@ export interface Transaction {
   /** formato YYYY-MM-DD */
   date: string
   note?: string
+  /**
+   * id da transação na Pluggy (open finance). Presente só em lançamentos
+   * importados; é a chave de deduplicação — reimportar nunca duplica.
+   */
+  pluggyId?: string
 }
 
 /** orçamento mensal por categoria: categoryId → teto em centavos */

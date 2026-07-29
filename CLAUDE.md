@@ -1,6 +1,6 @@
 # Meu Bolso — Controle financeiro pessoal (PWA)
 
-App **local-first** de finanças pessoais. Site estático (Next.js `output: "export"`) instalável como PWA no celular. **Sem backend**: todos os dados vivem no localStorage do aparelho; backup por export/import de JSON.
+App **local-first** de finanças pessoais. Site estático (Next.js `output: "export"`) instalável como PWA no celular. **Sem backend próprio**: todos os dados vivem no localStorage do aparelho; backup por export/import de JSON. Única integração externa: import opcional de extrato via **API da Pluggy** (open finance), chamada direto do navegador com credenciais do próprio usuário — ver Convenções.
 
 
 ## Stack
@@ -17,10 +17,11 @@ app/{layout,page}.tsx        ← app inteiro é uma página client com abas
 components/finance/          ← month-picker, summary-cards, insight-cards,
                                budgets-card, budget-editor, category-bars,
                                history-chart, transaction-list, transaction-form,
-                               settings-view
+                               settings-view, pluggy-card
 components/pwa/sw-register.tsx
 components/ui/               ← primitives shadcn
 lib/finance/{types,categories,store,summary,budgets,insights}.ts
+lib/pluggy/{client,mapping,credentials}.ts  ← open finance (BYOK, só browser)
 public/{manifest.webmanifest,sw.js,icons/}
 ```
 
@@ -34,7 +35,20 @@ public/{manifest.webmanifest,sw.js,icons/}
   sobre os dados locais — nunca chamam rede
 - UI em pt-BR; mobile-first (max-w-md centralizado)
 - Cor brand `#4C5AFF` (token `brand`); cores de gráfico validadas: azul `#2a78d6` (receitas), laranja `#eb6834` (despesas)
-- Nada de rede em runtime: não adicionar fetch para serviços externos sem discutir antes — a privacidade local-first é o requisito central do app
+- Rede em runtime: a privacidade local-first continua sendo o requisito central,
+  mas desde o PR #3 existe **uma** exceção deliberada: a API da Pluggy
+  (`api.pluggy.ai`), no modelo **BYOK** — o usuário traz as credenciais da
+  própria conta Pluggy, que ficam **só no aparelho** (chave
+  `meu-bolso:pluggy:v1`, separada dos dados e **nunca incluída no backup**) e
+  são enviadas **apenas** à Pluggy. Decisão tomada porque a API libera CORS
+  (`access-control-allow-origin: *`, verificado em 2026-07-29), o que permite
+  open finance com zero backend e zero custo. **Qualquer outra chamada externa
+  segue proibida sem discutir antes.** Não criar env `NEXT_PUBLIC_*` com
+  segredo; credencial jamais em código, log ou commit.
+- Lançamentos importados do open finance carregam `pluggyId` (id da transação
+  na Pluggy) — é a chave de deduplicação: import é sempre **merge**
+  (`importMerge` no store), nunca replace; reimportar não duplica extrato.
+  A apiKey de sessão da Pluggy (validade ~2h) vive só em memória.
 
 ## Build & deploy
 
