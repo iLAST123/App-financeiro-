@@ -17,20 +17,27 @@ app/{layout,page}.tsx        ← app inteiro é uma página client com abas
 components/finance/          ← month-picker, summary-cards, insight-cards,
                                budgets-card, budget-editor, category-bars,
                                history-chart, transaction-list, transaction-form,
-                               settings-view, pluggy-card
-components/pwa/sw-register.tsx
+                               settings-view, pluggy-card, backup-reminder
+components/pwa/sw-register.tsx  ← service worker + navigator.storage.persist()
 components/ui/               ← primitives shadcn
 lib/finance/{types,categories,store,summary,budgets,insights}.ts
+lib/finance/{migrations,persistence}.ts  ← schema versionado (ver seção abaixo)
+lib/finance/{csv,download,backup-meta}.ts ← export CSV, downloads, lembrete de backup
+lib/finance/__tests__/       ← Vitest (motor financeiro puro; `npm test`)
 lib/pluggy/{client,mapping,credentials}.ts  ← open finance (BYOK, só browser)
 public/{manifest.webmanifest,sw.js,icons/}
+.github/workflows/ci.yml     ← gate de PR: lint + test + build (SEM deploy)
 ```
 
 ## Convenções
 
 - Valores monetários em **centavos** (inteiros); formatação pt-BR via `centsToBRL`
 - Datas como string `YYYY-MM-DD`; mês como `YYYY-MM` (`MonthKey`)
-- Dados persistidos na chave `meu-bolso:v1` do localStorage (schema versionado;
-  campo opcional `budgets` = orçamento mensal por categoria, em centavos)
+- Dados persistidos na chave `meu-bolso:v1` do localStorage. **A chave não muda
+  quando o schema evolui** (é namespace do app); a versão vive DENTRO do payload
+  (`version`, hoje = 2: `{ version, transactions, budgets }`, budgets sempre
+  presente). Estado do lembrete de backup em chave própria
+  (`meu-bolso:backup-meta:v1`), fora do payload e fora do arquivo de backup.
 - Insights do "Radar do mês" (`lib/finance/insights.ts`) são heurísticas puras
   sobre os dados locais — nunca chamam rede
 - UI em pt-BR; mobile-first (max-w-md centralizado)
@@ -49,6 +56,39 @@ public/{manifest.webmanifest,sw.js,icons/}
   na Pluggy) — é a chave de deduplicação: import é sempre **merge**
   (`importMerge` no store), nunca replace; reimportar não duplica extrato.
   A apiKey de sessão da Pluggy (validade ~2h) vive só em memória.
+
+## Migração de schema (regra 2: NUNCA perder dados)
+
+O schema local é versionado e migrado por `lib/finance/migrations.ts`
+(`CURRENT_SCHEMA_VERSION` + mapa `MIGRATIONS`). A migração roda na leitura
+(`loadFromStorage`, em `lib/finance/persistence.ts`): antes de persistir o
+payload migrado, o original é salvo **uma única vez** em
+`meu-bolso:backup:pre-v{N}` (rollback manual). Invariantes do pipeline —
+cobertos por teste, não regredir:
+
+- Migração é **pura** (sem DOM), **idempotente** e **nunca descarta campo
+  desconhecido** (sempre `...data` antes de sobrescrever) nem filtra
+  lançamentos (validação de conteúdo é papel do `parseBackup`, na fronteira).
+- Payload corrompido/irreconhecível **não é sobrescrito na leitura**; versão
+  FUTURA (maior que a atual) é lida best-effort, sem migrar.
+- **Nunca editar migração já publicada.**
+
+**Como adicionar a v3 (próximo schema):**
+1. Escrever `v2ToV3` em `migrations.ts` (padrão `...data` + só o que muda),
+   registrar `2: v2ToV3` no mapa e subir `CURRENT_SCHEMA_VERSION` para 3.
+2. Atualizar o tipo `StoredData` e os consumidores.
+3. Testes em `__tests__/migrations.test.ts`: ida v2→v3 **e v1→v3 em cadeia**,
+   idempotência, campos desconhecidos preservados, payload real de produção.
+4. Conferir em `persistence.test.ts` que o snapshot `pre-v3` é gravado.
+
+## Testes & CI
+
+- `npm test` (Vitest, ambiente node) cobre o motor financeiro puro:
+  migrações, persistência (com stub de localStorage), summary/parseBRLInput,
+  parseBackup/merge Pluggy, CSV e lembrete de backup. Toda mudança no motor
+  ou no schema exige teste junto.
+- CI (`.github/workflows/ci.yml`): lint + test + build em todo PR e na main.
+  É só gate — **não** recriar deploy por Actions (deploy é a Vercel).
 
 ## Build & deploy
 

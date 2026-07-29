@@ -1,0 +1,26 @@
+# Gate de qualidade em PR e na main: lint + testes + build.
+# NÃO faz deploy — o deploy canônico é a Vercel (push na main).
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  verificar:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - name: Instalar dependências
+        run: npm ci
+      - name: Lint
+        run: npm run lint
+      - name: Testes (motor financeiro + migrações)
+        run: npm test
+      - name: Build (export estático)
+        run: npm run build
