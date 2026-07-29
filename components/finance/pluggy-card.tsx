@@ -133,6 +133,10 @@ export function PluggyCard({ onImport }: PluggyCardProps) {
         )
         return
       }
+      // mesma conta pode aparecer sob mais de um Item — dedupe por id
+      const unique = Array.from(
+        new Map(found.map((account) => [account.id, account])).values()
+      )
       const credentials: PluggyCredentials = {
         clientId: clientId.trim(),
         clientSecret: clientSecret.trim(),
@@ -141,8 +145,8 @@ export function PluggyCard({ onImport }: PluggyCardProps) {
       savePluggyCredentials(credentials)
       setSaved(credentials)
       setApiKey(key)
-      setAccounts(found)
-      setSelected(new Set(found.map((account) => account.id)))
+      setAccounts(unique)
+      setSelected(new Set(unique.map((account) => account.id)))
       setStep("accounts")
       if (failedItems.length > 0) {
         toast.warning(

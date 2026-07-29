@@ -74,7 +74,9 @@ export function toLocalTransaction(
   tx: PluggyTransaction,
   account: PluggyAccount
 ): Transaction | null {
-  if (tx.status === "PENDING") return null
+  // allowlist: só entra o efetivado (POSTED) ou sem status; PENDING e qualquer
+  // status futuro desconhecido ficam de fora — é o que a UI promete
+  if (tx.status && tx.status !== "POSTED") return null
   const amountCents = Math.round(Math.abs(tx.amount) * 100)
   if (!Number.isFinite(amountCents) || amountCents === 0) return null
   const date = tx.date?.slice(0, 10)

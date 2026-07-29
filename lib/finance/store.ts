@@ -58,14 +58,19 @@ export function mergeByPluggyId(
   incoming: Transaction[]
 ): { merged: Transaction[]; added: number; skipped: number } {
   const known = new Set(current.flatMap((t) => (t.pluggyId ? [t.pluggyId] : [])))
-  const fresh = incoming.filter(
-    (t) => t.pluggyId === undefined || !known.has(t.pluggyId)
-  )
-  return {
-    merged: [...current, ...fresh],
-    added: fresh.length,
-    skipped: incoming.length - fresh.length,
+  const fresh: Transaction[] = []
+  let skipped = 0
+  for (const t of incoming) {
+    if (t.pluggyId !== undefined && known.has(t.pluggyId)) {
+      skipped++
+      continue
+    }
+    // marca também os do próprio lote: se a API devolver a mesma transação
+    // duas vezes (ex.: overlap de cursor), a segunda cópia é descartada aqui
+    if (t.pluggyId !== undefined) known.add(t.pluggyId)
+    fresh.push(t)
   }
+  return { merged: [...current, ...fresh], added: fresh.length, skipped }
 }
 
 export function newId(): string {
@@ -190,18 +195,28 @@ export function parseBackup(raw: string): ParsedBackup {
   if (parsed.app !== "meu-bolso" || !Array.isArray(parsed.transactions)) {
     throw new Error("Arquivo de backup inválido")
   }
-  const transactions = parsed.transactions.filter(
-    (t): t is Transaction =>
-      typeof t === "object" &&
-      t !== null &&
-      typeof t.id === "string" &&
-      (t.type === "income" || t.type === "expense") &&
-      typeof t.amountCents === "number" &&
-      t.amountCents > 0 &&
-      typeof t.categoryId === "string" &&
-      typeof t.date === "string" &&
-      /^\d{4}-\d{2}-\d{2}$/.test(t.date)
-  )
+  const transactions = parsed.transactions
+    .filter(
+      (t): t is Transaction =>
+        typeof t === "object" &&
+        t !== null &&
+        typeof t.id === "string" &&
+        (t.type === "income" || t.type === "expense") &&
+        typeof t.amountCents === "number" &&
+        t.amountCents > 0 &&
+        typeof t.categoryId === "string" &&
+        typeof t.date === "string" &&
+        /^\d{4}-\d{2}-\d{2}$/.test(t.date)
+    )
+    // `pluggyId` é chave de dedup do open finance: se vier malformado no
+    // arquivo, mantém o lançamento mas descarta o campo
+    .map((t) => {
+      if (t.pluggyId === undefined) return t
+      if (typeof t.pluggyId === "string" && t.pluggyId.length > 0) return t
+      const clean = { ...t }
+      delete clean.pluggyId
+      return clean
+    })
   return {
     transactions,
     budgets:
