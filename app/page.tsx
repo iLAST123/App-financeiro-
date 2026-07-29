@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react"
 import { List, PieChart, Plus, Settings } from "lucide-react"
 import { toast } from "sonner"
+import { BackupReminder } from "@/components/finance/backup-reminder"
 import { BudgetEditor } from "@/components/finance/budget-editor"
 import { BudgetsCard } from "@/components/finance/budgets-card"
 import { CategoryBars } from "@/components/finance/category-bars"
@@ -140,6 +141,7 @@ export default function HomePage() {
             <MonthPicker month={month} onChange={setMonth} />
             {tab === "resumo" && (
               <>
+                <BackupReminder transactions={transactions} budgets={budgets} />
                 <SummaryCards summary={summary} />
                 {monthTransactions.length === 0 ? (
                   <>

@@ -1,46 +1,9 @@
 "use client"
 
 import { useCallback, useEffect, useState } from "react"
+import { CURRENT_SCHEMA_VERSION, sanitizeBudgets } from "./migrations"
+import { loadFromStorage, saveToStorage } from "./persistence"
 import type { BackupFile, BudgetMap, Transaction } from "./types"
-
-const STORAGE_KEY = "meu-bolso:v1"
-
-interface StoredData {
-  version: 1
-  transactions: Transaction[]
-  /** orçamento mensal por categoria (categoryId → centavos); opcional p/ dados antigos */
-  budgets?: BudgetMap
-}
-
-function sanitizeBudgets(raw: unknown): BudgetMap {
-  if (typeof raw !== "object" || raw === null) return {}
-  const out: BudgetMap = {}
-  for (const [categoryId, value] of Object.entries(raw as Record<string, unknown>)) {
-    if (typeof value === "number" && Number.isFinite(value) && value > 0) {
-      out[categoryId] = Math.round(value)
-    }
-  }
-  return out
-}
-
-function loadFromStorage(): { transactions: Transaction[]; budgets: BudgetMap } {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY)
-    if (!raw) return { transactions: [], budgets: {} }
-    const parsed = JSON.parse(raw) as Partial<StoredData>
-    return {
-      transactions: Array.isArray(parsed.transactions) ? parsed.transactions : [],
-      budgets: sanitizeBudgets(parsed.budgets),
-    }
-  } catch {
-    return { transactions: [], budgets: {} }
-  }
-}
-
-function saveToStorage(transactions: Transaction[], budgets: BudgetMap) {
-  const data: StoredData = { version: 1, transactions, budgets }
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(data))
-}
 
 function sortTransactions(transactions: Transaction[]): Transaction[] {
   return [...transactions].sort((a, b) =>
@@ -176,7 +139,7 @@ export function buildBackup(
 ): BackupFile {
   const backup: BackupFile = {
     app: "meu-bolso",
-    version: 1,
+    version: CURRENT_SCHEMA_VERSION,
     exportedAt: new Date().toISOString(),
     transactions,
   }

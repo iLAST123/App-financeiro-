@@ -1,7 +1,14 @@
 "use client"
 
 import { useRef, useState } from "react"
-import { Download, ShieldCheck, Smartphone, Trash2, Upload } from "lucide-react"
+import {
+  Download,
+  FileSpreadsheet,
+  ShieldCheck,
+  Smartphone,
+  Trash2,
+  Upload,
+} from "lucide-react"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import {
@@ -20,11 +27,8 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { PluggyCard } from "@/components/finance/pluggy-card"
-import {
-  buildBackup,
-  parseBackup,
-  type ParsedBackup,
-} from "@/lib/finance/store"
+import { downloadBackup, downloadCSV } from "@/lib/finance/download"
+import { parseBackup, type ParsedBackup } from "@/lib/finance/store"
 import type { BudgetMap, Transaction } from "@/lib/finance/types"
 
 interface SettingsViewProps {
@@ -48,17 +52,13 @@ export function SettingsView({
   const [pendingImport, setPendingImport] = useState<ParsedBackup | null>(null)
 
   function handleExport() {
-    const backup = buildBackup(transactions, budgets)
-    const blob = new Blob([JSON.stringify(backup, null, 2)], {
-      type: "application/json",
-    })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement("a")
-    a.href = url
-    a.download = `meu-bolso-backup-${backup.exportedAt.slice(0, 10)}.json`
-    a.click()
-    URL.revokeObjectURL(url)
+    downloadBackup(transactions, budgets)
     toast.success("Backup exportado")
+  }
+
+  function handleExportCSV() {
+    downloadCSV(transactions)
+    toast.success("Extrato CSV exportado")
   }
 
   async function handleImportFile(file: File) {
@@ -97,18 +97,29 @@ export function SettingsView({
             backup anterior.
           </CardDescription>
         </CardHeader>
-        <CardContent className="flex gap-3 pb-5">
-          <Button variant="outline" className="flex-1" onClick={handleExport}>
-            <Download className="mr-2 h-4 w-4" />
-            Exportar
-          </Button>
+        <CardContent className="space-y-3 pb-5">
+          <div className="flex gap-3">
+            <Button variant="outline" className="flex-1" onClick={handleExport}>
+              <Download className="mr-2 h-4 w-4" />
+              Exportar
+            </Button>
+            <Button
+              variant="outline"
+              className="flex-1"
+              onClick={() => fileInputRef.current?.click()}
+            >
+              <Upload className="mr-2 h-4 w-4" />
+              Importar
+            </Button>
+          </div>
           <Button
             variant="outline"
-            className="flex-1"
-            onClick={() => fileInputRef.current?.click()}
+            className="w-full"
+            onClick={handleExportCSV}
+            disabled={transactions.length === 0}
           >
-            <Upload className="mr-2 h-4 w-4" />
-            Importar
+            <FileSpreadsheet className="mr-2 h-4 w-4" />
+            Exportar extrato em CSV (planilha)
           </Button>
           <input
             ref={fileInputRef}

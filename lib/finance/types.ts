@@ -21,7 +21,9 @@ export type BudgetMap = Record<string, number>
 
 export interface BackupFile {
   app: "meu-bolso"
-  version: 1
+  /** acompanha a versão do schema local (`CURRENT_SCHEMA_VERSION`); a leitura
+   *  (`parseBackup`) é tolerante e valida pelo shape, não pela versão */
+  version: number
   exportedAt: string
   transactions: Transaction[]
   /** ausente em backups antigos (antes dos orçamentos) */
